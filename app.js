@@ -1,6 +1,5 @@
 let schedules = [];
 
-// Quotes Acak
 const quotes = [
     '"Disiplin adalah jembatan antara tujuan dan pencapaian."',
     '"Keamanan bukan sekadar tugas, melainkan tanggung jawab moral."',
@@ -18,7 +17,6 @@ function init() {
     updateHeaderDate();
     setRandomQuote();
     
-    // Close dropdown saat klik di luar area
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.custom-dropdown')) {
             const unitList = document.getElementById('unit-list');
@@ -46,7 +44,6 @@ function setRandomQuote() {
     document.getElementById('quote-display').textContent = quotes[randomIndex];
 }
 
-// Toast Notifikasi
 window.showToast = function(message, type = 'success') {
     const oldToast = document.getElementById('app-toast');
     if (oldToast) oldToast.remove();
@@ -64,7 +61,6 @@ window.showToast = function(message, type = 'success') {
     }, 3000);
 };
 
-// Logika Warna Tombol Shift
 window.setShift = function(shiftValue) {
     document.getElementById('schedule-shift').value = shiftValue;
     const btnPagi = document.getElementById('btn-pagi');
@@ -187,64 +183,62 @@ window.editItem = function(id) {
     document.getElementById('modal-overlay').classList.add('active');
 };
 
-// Form Submit (Tambah & Edit)
 document.getElementById('schedule-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btn-submit');
-    btn.disabled = true;
-    btn.textContent = 'Memproses...';
-
     const editId = document.getElementById('edit-id').value;
+    
+    const dateVal = document.getElementById('schedule-date').value;
     const shiftVal = document.getElementById('schedule-shift').value;
     const unitVal = document.getElementById('schedule-unit').value;
+    const pegawaiVal = document.getElementById('schedule-pegawai').value;
 
-    if (!unitVal) {
-        showToast('Silakan pilih Unit Kerja', 'error');
-        btn.disabled = false;
-        btn.textContent = editId ? 'Update' : 'Simpan';
+    // VALIDASI CUSTOM JS: Jika ada kolom kosong, munculkan pop-up keren
+    if (!dateVal || !unitVal || !pegawaiVal) {
+        showToast('Pastikan Tanggal, Unit, dan Nama Pegawai sudah diisi!', 'error');
         return;
     }
 
-    // PERBAIKAN STRUKTUR DATA: Menghapus nilai "undefined" yang ditolak Firebase
+    btn.disabled = true;
+    btn.textContent = 'Memproses...';
+
     const payload = {
-        date: document.getElementById('schedule-date').value,
+        date: dateVal,
         shift: shiftVal,
         unitKerja: unitVal,
-        namaPegawai: document.getElementById('schedule-pegawai').value,
+        namaPegawai: pegawaiVal,
         catatan: document.getElementById('schedule-notes').value
     };
 
-    // Hanya tambah timestamp jika ini adalah jadwal baru
     if (!editId) {
         payload.timestamp = new Date().getTime();
     }
 
     try {
         if (editId) {
-            // Update
             await window.fb.updateDoc(window.fb.doc(window.db, "schedules", editId), payload);
             showToast('Jadwal berhasil diperbarui!');
         } else {
-            // Tambah Baru
             await window.fb.addDoc(window.fb.collection(window.db, "schedules"), payload);
             showToast('Jadwal baru berhasil disimpan!');
         }
         closeModal();
     } catch (err) {
-        console.error("Firebase Error: ", err);
-        showToast('Gagal: Periksa koneksi internet', 'error');
+        console.error(err);
+        showToast('Gagal terhubung ke Database', 'error');
     } finally {
         btn.disabled = false;
+        btn.textContent = editId ? 'Update' : 'Simpan';
     }
 });
 
 window.deleteItem = async function(id) {
-    if (confirm("Hapus jadwal ini?")) {
+    if (confirm("Hapus jadwal ini secara permanen?")) {
         try {
             await window.fb.deleteDoc(window.fb.doc(window.db, "schedules", id));
-            showToast('Jadwal dihapus!');
+            showToast('Jadwal telah dihapus!');
         } catch(err) {
-            showToast('Gagal menghapus', 'error');
+            showToast('Gagal menghapus jadwal', 'error');
         }
     }
 };

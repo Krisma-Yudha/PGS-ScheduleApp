@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EGarda - Schedule App by Krisma</title>
+    <title>EGarda - Sistem Jadwal</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -62,7 +62,7 @@
 
                 <div class="form-group">
                     <label>Tanggal</label>
-                    <input type="date" id="schedule-date" required>
+                    <input type="date" id="schedule-date">
                 </div>
 
                 <div class="form-group">
@@ -71,7 +71,7 @@
                         <button type="button" class="shift-btn active pagi-active" id="btn-pagi" onclick="setShift('Pagi')">☀️ Pagi</button>
                         <button type="button" class="shift-btn" id="btn-malam" onclick="setShift('Malam')">🌙 Malam</button>
                     </div>
-                    <input type="hidden" id="schedule-shift" value="Pagi" required>
+                    <input type="hidden" id="schedule-shift" value="Pagi">
                 </div>
 
                 <div class="form-group">
@@ -88,12 +88,12 @@
                             <div class="dropdown-item" onclick="setUnit('Kantor Unit Catur')">Kantor Unit Catur</div>
                         </div>
                     </div>
-                    <input type="hidden" id="schedule-unit" required>
+                    <input type="hidden" id="schedule-unit">
                 </div>
 
                 <div class="form-group">
                     <label>Pegawai yang Digantikan</label>
-                    <input type="text" id="schedule-pegawai" placeholder="Tulis nama lengkap" required>
+                    <input type="text" id="schedule-pegawai" placeholder="Tulis nama lengkap">
                 </div>
 
                 <div class="form-group">
