@@ -21,13 +21,15 @@ function init() {
     // Close dropdown saat klik di luar area
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.custom-dropdown')) {
-            document.getElementById('unit-list').classList.remove('show');
-            document.querySelector('.custom-dropdown').classList.remove('open');
+            const unitList = document.getElementById('unit-list');
+            const customDropdown = document.querySelector('.custom-dropdown');
+            if (unitList) unitList.classList.remove('show');
+            if (customDropdown) customDropdown.classList.remove('open');
         }
     });
 
     const waitDB = setInterval(() => {
-        if (window.db) {
+        if (window.db && window.fb) {
             clearInterval(waitDB);
             syncRealtime();
         }
@@ -44,7 +46,7 @@ function setRandomQuote() {
     document.getElementById('quote-display').textContent = quotes[randomIndex];
 }
 
-// Toast Notifikasi Bouncy
+// Toast Notifikasi
 window.showToast = function(message, type = 'success') {
     const oldToast = document.getElementById('app-toast');
     if (oldToast) oldToast.remove();
@@ -115,7 +117,7 @@ function renderUI() {
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     let upcomingCount = 0;
-    let globalIndex = 0; // Untuk mengatur jeda animasi berurutan (cascade)
+    let globalIndex = 0; 
 
     schedules.forEach(item => {
         const itemDate = new Date(item.date);
@@ -143,7 +145,7 @@ function createCardHTML(item, index) {
     const d = new Date(item.date);
     const dateStr = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
     const shiftText = item.shift === 'Pagi' ? 'Pagi (07:00-19:00)' : 'Malam (19:00-07:00)';
-    const animDelay = index * 0.05; // Kartu muncul bergantian
+    const animDelay = index * 0.05; 
     
     return `
         <div class="card" style="animation-delay: ${animDelay}s">
@@ -160,8 +162,8 @@ function createCardHTML(item, index) {
             ${item.catatan ? `<div class="card-detail" style="margin-top:8px; font-style:italic;">"${item.catatan}"</div>` : ''}
             
             <div class="card-actions">
-                <button class="btn-icon btn-edit" onclick="editItem('${item.id}')">Edit</button>
-                <button class="btn-icon btn-delete" onclick="deleteItem('${item.id}')">Hapus</button>
+                <button type="button" class="btn-icon btn-edit" onclick="editItem('${item.id}')">Edit</button>
+                <button type="button" class="btn-icon btn-delete" onclick="deleteItem('${item.id}')">Hapus</button>
             </div>
         </div>
     `;
@@ -185,6 +187,7 @@ window.editItem = function(id) {
     document.getElementById('modal-overlay').classList.add('active');
 };
 
+// Form Submit (Tambah & Edit)
 document.getElementById('schedule-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btn-submit');
@@ -202,26 +205,34 @@ document.getElementById('schedule-form').addEventListener('submit', async (e) =>
         return;
     }
 
+    // PERBAIKAN STRUKTUR DATA: Menghapus nilai "undefined" yang ditolak Firebase
     const payload = {
         date: document.getElementById('schedule-date').value,
         shift: shiftVal,
         unitKerja: unitVal,
         namaPegawai: document.getElementById('schedule-pegawai').value,
-        catatan: document.getElementById('schedule-notes').value,
-        timestamp: editId ? undefined : new Date().getTime()
+        catatan: document.getElementById('schedule-notes').value
     };
+
+    // Hanya tambah timestamp jika ini adalah jadwal baru
+    if (!editId) {
+        payload.timestamp = new Date().getTime();
+    }
 
     try {
         if (editId) {
+            // Update
             await window.fb.updateDoc(window.fb.doc(window.db, "schedules", editId), payload);
             showToast('Jadwal berhasil diperbarui!');
         } else {
+            // Tambah Baru
             await window.fb.addDoc(window.fb.collection(window.db, "schedules"), payload);
             showToast('Jadwal baru berhasil disimpan!');
         }
         closeModal();
     } catch (err) {
-        showToast('Gagal: ' + err.message, 'error');
+        console.error("Firebase Error: ", err);
+        showToast('Gagal: Periksa koneksi internet', 'error');
     } finally {
         btn.disabled = false;
     }
