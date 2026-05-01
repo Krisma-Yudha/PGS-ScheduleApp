@@ -40,7 +40,7 @@
 
         <main class="main-content">
             <div id="schedule-container" class="grid-container">
-                </div>
+            </div>
         </main>
     </div>
 
@@ -89,7 +89,7 @@
                         <button type="button" class="btn-secondary" onclick="addDraftTask()">Add</button>
                     </div>
                     <ul class="draft-task-list" id="draft-task-list">
-                        </ul>
+                    </ul>
                 </div>
 
                 <div class="modal-actions">
@@ -100,6 +100,28 @@
         </div>
     </div>
 
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy } 
+        from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAA_tK4pYMtdKlMAGF7u-zwzsc5sWV5PdQ",
+            authDomain: "egarda-49d50.firebaseapp.com",
+            databaseURL: "https://egarda-49d50-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "egarda-49d50",
+            storageBucket: "egarda-49d50.firebasestorage.app",
+            messagingSenderId: "249657374353",
+            appId: "1:249657374353:web:262b190dbc13cf41ccb130"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Kirim fungsi Firebase ke file app.js secara global
+        window.db = db;
+        window.fbMethods = { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy };
+    </script>
     <script src="app.js"></script>
 </body>
 </html>
