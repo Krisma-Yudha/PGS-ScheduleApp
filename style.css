@@ -1,0 +1,23 @@
+body {
+  font-family: Arial;
+  background: #111;
+  color: #fff;
+  padding: 20px;
+}
+
+.form input, button {
+  margin: 5px;
+  padding: 8px;
+}
+
+.card {
+  background: #1e1e1e;
+  padding: 15px;
+  margin-top: 10px;
+  border-radius: 8px;
+}
+
+.done {
+  text-decoration: line-through;
+  color: #888;
+}
