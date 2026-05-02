@@ -31,8 +31,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.addEventListener('click', (e) => {
         if (!e.target.closest('#dropdown-container')) {
-            document.getElementById('unit-list').classList.remove('show');
-            document.getElementById('dropdown-container').classList.remove('open');
+            const unitList = document.getElementById('unit-list');
+            const dropdownContainer = document.getElementById('dropdown-container');
+            if(unitList) unitList.classList.remove('show');
+            if(dropdownContainer) dropdownContainer.classList.remove('open');
         }
     });
 
@@ -74,17 +76,13 @@ function initAuth() {
             document.getElementById('main-app').style.display = 'none';
 
             if (!storedPIN) {
-                // USER BARU -> Setup PIN
                 showPinScreen('setup');
             } else if (!lastActive || (now - parseInt(lastActive)) > TIMEOUT_DURATION) {
-                // USER KEMBALI LAMA -> Verify PIN
                 showPinScreen('verify');
             } else {
-                // MASIH DALAM WAKTU 1 JAM -> Langsung Masuk
                 enterMainApp();
             }
         } else {
-            // BELUM LOGIN GOOGLE SAMA SEKALI
             showGoogleScreen();
         }
 
@@ -95,7 +93,6 @@ function initAuth() {
     });
 }
 
-// Menampilkan Tombol Google Saja
 function showGoogleScreen() {
     document.getElementById('main-app').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
@@ -104,7 +101,6 @@ function showGoogleScreen() {
     clearPinUI();
 }
 
-// Menampilkan Layar PIN
 function showPinScreen(mode) {
     state.pinMode = mode;
     state.currentPinInput = "";
@@ -124,40 +120,34 @@ function showPinScreen(mode) {
     clearPinUI();
 }
 
-// Proses Google Login
 window.loginGoogle = async () => {
     try {
         const provider = new window.fbAuth.GoogleAuthProvider();
         await window.fbAuth.signInWithPopup(window.fbAuth.auth, provider);
-        // Otomatis ditangkap onAuthStateChanged
     } catch (error) {
         if (error.code !== 'auth/popup-closed-by-user') showToast('Gagal terhubung dengan Google', 'error');
     }
 };
 
-// Proses Saat Masuk App
 function enterMainApp() {
-    localStorage.setItem('eg_last_active', Date.now()); // Update waktu aktif
+    localStorage.setItem('eg_last_active', Date.now()); 
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('main-app').style.display = 'flex';
     fetchSchedules();
 }
 
-// Kunci Manual
 window.lockAppManual = () => {
-    localStorage.setItem('eg_last_active', '0'); // Paksa waktu expired
+    localStorage.setItem('eg_last_active', '0'); 
     if (state.unsubscribeDB) { state.unsubscribeDB(); state.unsubscribeDB = null; }
     showPinScreen('verify');
     showToast('Aplikasi Terkunci');
 };
 
-// Kunci Otomatis (Timeout)
 function lockAppAuto() {
     if (state.unsubscribeDB) { state.unsubscribeDB(); state.unsubscribeDB = null; }
     showPinScreen('verify');
 }
 
-// Ganti Akun (Logout Total)
 window.logoutFromPin = async () => {
     if (confirm("Ingin keluar dan hapus PIN dari perangkat ini?")) {
         localStorage.removeItem('eg_user_pin');
@@ -172,9 +162,8 @@ window.pressPin = (num) => {
         state.currentPinInput += num;
         updatePinUI();
 
-        // Jika sudah 6 angka, evaluasi
         if (state.currentPinInput.length === 6) {
-            setTimeout(evaluatePin, 150); // delay dikit biar animasi dot keliatan
+            setTimeout(evaluatePin, 150); 
         }
     }
 };
@@ -204,17 +193,14 @@ function clearPinUI() {
 
 function evaluatePin() {
     if (state.pinMode === 'setup') {
-        // Simpan PIN Baru
         localStorage.setItem('eg_user_pin', state.currentPinInput);
         showToast('PIN Berhasil Dibuat!');
         enterMainApp();
     } else {
-        // Verifikasi PIN
         const storedPIN = localStorage.getItem('eg_user_pin');
         if (state.currentPinInput === storedPIN) {
             enterMainApp();
         } else {
-            // Animasi Goyang jika salah
             const authCard = document.getElementById('auth-card');
             authCard.classList.add('shake-error');
             setTimeout(() => authCard.classList.remove('shake-error'), 400);
@@ -340,6 +326,7 @@ document.getElementById('schedule-form').addEventListener('submit', async (e) =>
         }
         closeModal();
     } catch (error) {
+        console.error(error);
         showToast('Gagal menyimpan data!', 'error');
     } finally {
         state.isSubmitting = false;
@@ -365,12 +352,14 @@ window.editItem = (id) => {
     document.getElementById('modal-overlay').classList.add('active');
 };
 
+// PERBAIKAN: Fungsi hapus sekarang mengarah ke window.fb.db dengan benar
 window.deleteItem = async (id) => {
     if (confirm("Hapus jadwal ini secara permanen?")) {
         try {
-            await window.fb.deleteDoc(window.fb.doc(window.db, "schedules", id));
+            await window.fb.deleteDoc(window.fb.doc(window.fb.db, "schedules", id));
             showToast('Jadwal telah dihapus');
         } catch(err) {
+            console.error("Gagal Hapus:", err);
             showToast('Gagal menghapus jadwal', 'error');
         }
     }
