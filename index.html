@@ -3,9 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EGarda - PGS Schedule App By Krisma</title>
+    <title>EGarda - By Krisma</title>
+    
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="style.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 <body>
 
@@ -21,9 +25,8 @@
         </div>
 
         <div class="login-card" id="auth-card">
-            
             <div id="google-section">
-                <h1 class="brand-title" style="text-align: center; margin-bottom: 8px;">EGARDA</h1>
+                <h1 class="brand-title" style="text-align: center; margin-bottom: 8px;">EGarda</h1>
                 <p style="text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 40px;">Selamat Datang!</p>
                 
                 <button onclick="loginGoogle()" class="btn-google">
@@ -62,27 +65,31 @@
                     </button>
                 </div>
             </div>
-
         </div>
     </div>
 
     <div class="app-container" id="main-app" style="display: none;">
-        <header class="app-header">
+                <header class="app-header">
             <div>
-                <h1 class="brand-title">EGARDA</h1>
+                <h1 class="brand-title" id="egarda-brand">EGarda</h1>
                 <p id="header-date" class="date-display">Memuat tanggal...</p>
             </div>
             <button onclick="lockAppManual()" class="btn-lock" aria-label="Kunci Aplikasi">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
             </button>
         </header>
+        <div style="text-align: center; margin: 10px 0 20px;">
+            <p style="font-weight: 600; color: var(--primary); font-size: 0.95rem;">
+                Selamat datang Developer! Krisma.
+            </p>
+        </div>
         
         <hr class="divider">
 
         <main class="main-content">
             <section class="schedule-section">
                 <div class="section-header">
-                    <h2>Jadwal Mendatang</h2>
+                    <h2>Sorotan</h2>
                     <span class="badge-info">Hari ini & Besok</span>
                 </div>
                 <div id="upcoming-container" class="schedule-grid"></div>
@@ -102,7 +109,10 @@
         </footer>
 
         <button class="fab-btn" onclick="openModal()" aria-label="Tambah Jadwal Baru">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="6" x2="12" y2="18"></line>
+                <line x1="6" y1="12" x2="18" y2="12"></line>
+            </svg>
         </button>
     </div>
 
@@ -110,21 +120,22 @@
         <div class="modal-card">
             <div class="modal-header">
                 <h2 id="modal-title">Jadwal Baru</h2>
-                <button class="btn-close" onclick="closeModal()">&times;</button>
+               <button class="modal-close" onclick="closeModal()">&times;</button>
             </div>
+            
             <form id="schedule-form" class="custom-form">
                 <input type="hidden" id="edit-id">
                 
                 <div class="form-group">
-                    <label>Tanggal</label>
-                    <input type="date" id="schedule-date">
+                    <label for="schedule-date">Tanggal</label>
+                    <input type="date" id="schedule-date" required>
                 </div>
                 
                 <div class="form-group">
                     <label>Shift Kerja</label>
                     <div class="shift-selector">
-                        <button type="button" class="shift-btn active pagi-active" id="btn-pagi" onclick="setShift('Pagi')">☀️ Pagi</button>
-                        <button type="button" class="shift-btn" id="btn-malam" onclick="setShift('Malam')">🌙 Malam</button>
+                        <button type="button" class="shift-btn active pagi-active" id="btn-pagi" onclick="setShift('Pagi')">Pagi</button>
+                        <button type="button" class="shift-btn" id="btn-malam" onclick="setShift('Malam')">Malam</button>
                     </div>
                     <input type="hidden" id="schedule-shift" value="Pagi">
                 </div>
@@ -132,7 +143,7 @@
                 <div class="form-group">
                     <label>Unit Kerja</label>
                     <div class="custom-dropdown" id="dropdown-container">
-                        <div class="dropdown-selected" id="unit-selected" onclick="toggleDropdown()">Pilih Tempat Kerja</div>
+                        <div class="dropdown-selected" id="unit-selected" onclick="toggleDropdown()">Pilih Unit Kerja</div>
                         <div class="dropdown-list" id="unit-list">
                             <div class="dropdown-item" onclick="setUnit('Kantor Cabang Bangli')">Kantor Cabang Bangli</div>
                             <div class="dropdown-item" onclick="setUnit('Kantor Unit Bangli Kota')">Kantor Unit Bangli Kota</div>
@@ -147,12 +158,12 @@
                 </div>
                 
                 <div class="form-group">
-                    <label>Pegawai yang Digantikan</label>
-                    <input type="text" id="schedule-pegawai" placeholder="Ketik nama lengkap" autocomplete="off">
+                    <label for="schedule-pegawai">Pegawai yang Digantikan</label>
+                    <input type="text" id="schedule-pegawai" placeholder="Ketik nama lengkap" autocomplete="off" required>
                 </div>
                 
                 <div class="form-group">
-                    <label>Catatan (Opsional)</label>
+                    <label for="schedule-notes">Catatan (Opsional)</label>
                     <textarea id="schedule-notes" placeholder="Tulis instruksi tambahan jika ada..."></textarea>
                 </div>
                 
@@ -169,7 +180,7 @@
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { getAuth, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-        // CONFIG FIREBASE
+        // Konfigurasi Firebase Proyek Anda
         const firebaseConfig = {
             apiKey: "AIzaSyAA_tK4pYMtdKlMAGF7u-zwzsc5sWV5PdQ",
             authDomain: "egarda-49d50.firebaseapp.com",
@@ -184,9 +195,11 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
+        // Ekspos fungsi ke scope window untuk diakses app.js
         window.fb = { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, serverTimestamp, db };
         window.fbAuth = { auth, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup };
     </script>
+    
     <script src="app.js"></script>
 </body>
 </html>

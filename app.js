@@ -1,19 +1,18 @@
 /**
  * EGARDA - Core Logic
- * Advanced Security: Whitelist Admin + Google Auth + PIN Lock
+ * Google Auth + Local PIN + Live Progress Tracking
  */
 
-// --- PENGATURAN ADMIN (GANTI DI SINI) ---
-const ALLOWED_ADMINS = [
-    "krismayudha836@gmail.com" // Masukkan email utamamu di sini
-];
+// GANTI DENGAN EMAIL KAMU SENDIRI
+const ALLOWED_ADMINS = ["krismayudha836@gmail.com"];
 
 const state = {
     schedules: [],
     unsubscribeDB: null,
     isSubmitting: false,
     currentPinInput: "",
-    pinMode: "verify" 
+    pinMode: "verify",
+    progressTimer: null // Timer untuk progress bar berjalan real-time
 };
 
 const TIMEOUT_DURATION = 60 * 60 * 1000; 
@@ -47,12 +46,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 100);
 });
 
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+        if (window.fbAuth && window.fbAuth.auth.currentUser) {
+            const lastActive = localStorage.getItem('eg_last_active');
+            if (lastActive && (Date.now() - parseInt(lastActive)) > TIMEOUT_DURATION) {
+                lockAppAuto(); 
+            }
+        }
+    } else {
+        localStorage.setItem('eg_last_active', Date.now()); 
+    }
+});
+
 function initAuth() {
     window.fbAuth.onAuthStateChanged(window.fbAuth.auth, async (user) => {
         const loader = document.getElementById('global-loader');
         
         if (user) {
-            // --- VALIDASI DAFTAR PUTIH (WHITELIST) ---
             if (!ALLOWED_ADMINS.includes(user.email)) {
                 showToast('Akses Ditolak: Email tidak terdaftar!', 'error');
                 await window.fbAuth.signOut(window.fbAuth.auth);
@@ -61,7 +72,6 @@ function initAuth() {
                 return;
             }
 
-            // Jika email lolos validasi, lanjut ke PIN
             const storedPIN = localStorage.getItem('eg_user_pin');
             const lastActive = localStorage.getItem('eg_last_active');
             const now = Date.now();
@@ -123,14 +133,30 @@ function enterMainApp() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('main-app').style.display = 'flex';
     fetchSchedules();
+    
+    // Timer pembaruan progress bar 1 menit sekali tanpa load animasi
+    if(!state.progressTimer) {
+        state.progressTimer = setInterval(() => {
+            if(document.getElementById('main-app').style.display === 'flex') {
+                renderUI(true); 
+            }
+        }, 60000);
+    }
 }
 
 window.lockAppManual = () => {
     localStorage.setItem('eg_last_active', '0'); 
     if (state.unsubscribeDB) { state.unsubscribeDB(); state.unsubscribeDB = null; }
+    if (state.progressTimer) { clearInterval(state.progressTimer); state.progressTimer = null; }
     showPinScreen('verify');
     showToast('Aplikasi Terkunci');
 };
+
+function lockAppAuto() {
+    if (state.unsubscribeDB) { state.unsubscribeDB(); state.unsubscribeDB = null; }
+    if (state.progressTimer) { clearInterval(state.progressTimer); state.progressTimer = null; }
+    showPinScreen('verify');
+}
 
 window.logoutFromPin = async () => {
     if (confirm("Ingin keluar dan hapus PIN dari perangkat ini?")) {
@@ -195,20 +221,58 @@ function fetchSchedules() {
     });
 }
 
-function renderUI() {
+function renderUI(noAnimate = false) {
     const upcomingContainer = document.getElementById('upcoming-container');
     const allContainer = document.getElementById('all-container');
     upcomingContainer.innerHTML = ''; allContainer.innerHTML = '';
     document.getElementById('total-count').textContent = state.schedules.length;
+    
+    // Normalisasi hari ini untuk membandingkan tanggal murni
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); 
+
     const todayStr = new Date().toISOString().split('T')[0];
     const tomorrowDate = new Date(); tomorrowDate.setDate(tomorrowDate.getDate() + 1);
     const tomorrowStr = tomorrowDate.toISOString().split('T')[0];
     let upcomingCount = 0;
-    state.schedules.forEach((item, index) => {
-        const cardHTML = generateCard(item, index);
+    
+    // --- LOGIKA SORTIR BARU ---
+    const sortedSchedules = [...state.schedules].sort((a, b) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        
+        // 1. Yang sudah selesai ditaruh di urutan paling bawah
+        if (a.isCompleted !== b.isCompleted) {
+            return a.isCompleted ? 1 : -1;
+        }
+        
+        // 2. Prioritaskan jadwal hari ini dan masa depan
+        const isPastA = dateA < today;
+        const isPastB = dateB < today;
+        
+        if (isPastA !== isPastB) {
+            return isPastA ? 1 : -1; // Yang sudah lewat ditaruh ke bawah
+        }
+        
+        // 3. Jika belum berlalu (masa depan), urutkan dari yang terdekat
+        if (!isPastA && !isPastB) {
+            return dateA - dateB; 
+        } 
+        // 4. Jika sudah berlalu tapi belum ditandai selesai, urutkan dari yang paling dekat dengan hari ini
+        else {
+            return dateB - dateA;
+        }
+    });
+
+    sortedSchedules.forEach((item, index) => {
+        const cardHTML = generateCard(item, index, noAnimate);
+        
+        // Append untuk "Semua Jadwal"
         const elAll = document.createElement('div');
         elAll.innerHTML = cardHTML;
         allContainer.appendChild(elAll.firstElementChild);
+        
+        // Append untuk "Sorotan" (Hari ini & Besok) - Cek format original Firestore Date
         if (item.date === todayStr || item.date === tomorrowStr) {
             const elUp = document.createElement('div');
             elUp.innerHTML = cardHTML;
@@ -216,15 +280,61 @@ function renderUI() {
             upcomingCount++;
         }
     });
+    
     if (upcomingCount === 0) upcomingContainer.innerHTML = '<div class="empty-state">Tidak ada jadwal untuk hari ini atau besok.</div>';
 }
 
-function generateCard(item, index) {
+function generateCard(item, index, noAnimate) {
     const d = new Date(item.date);
     const formattedDate = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(d);
     const shiftInfo = item.shift === 'Pagi' ? 'Pagi (07:00 - 19:00)' : 'Malam (19:00 - 07:00)';
+    
+    // Setting Animasi Entry Card
+    const animStyle = noAnimate ? 'animation: none;' : `animation-delay: ${index * 0.05}s;`;
+
+    // --- KALKULASI PROGRESS WAKTU ---
+    const now = new Date();
+    const dateParts = item.date.split('-'); 
+    const year = parseInt(dateParts[0]);
+    const month = parseInt(dateParts[1]) - 1;
+    const day = parseInt(dateParts[2]);
+    
+    const start = new Date(year, month, day, item.shift === 'Pagi' ? 7 : 19, 0, 0);
+    const end = new Date(start.getTime() + 12 * 60 * 60 * 1000);
+    
+    let statusHTML = '';
+    
+    if (item.isCompleted) {
+        statusHTML = `<span class="status-text selesai">✓ Sudah terlaksana</span>`;
+    } else if (now < start) {
+        statusHTML = `<span class="status-text belum">Belum</span>`;
+    } else {
+        let progress = ((now - start) / (end - start)) * 100;
+        if (progress < 0) progress = 0;
+        if (progress > 100) progress = 100;
+        
+        if (progress < 100) {
+            statusHTML = `
+                <span class="status-text berlangsung">Sedang Berlangsung</span>
+                <div class="progress-track">
+                    <div class="progress-fill" style="width: ${progress}%; background-color: var(--dot-pagi);"></div>
+                </div>
+            `;
+        } else {
+            statusHTML = `
+                <span class="status-text" style="color: var(--success); font-weight: 700; display: block; margin-bottom: 4px;">Waktu Habis</span>
+                <div class="progress-track">
+                    <div class="progress-fill" style="width: 100%; background-color: var(--success);"></div>
+                </div>
+                <label class="check-complete">
+                    <input type="checkbox" onchange="markAsCompleted('${item.id}')"> Konfirmasi Selesai
+                </label>
+            `;
+        }
+    }
+
     return `
-        <div class="card" style="animation-delay: ${index * 0.05}s">
+        <div class="card" style="${animStyle}">
             <div class="card-top">
                 <span class="card-date">${formattedDate}</span>
                 <div class="shift-indicator"><span class="dot-shift ${item.shift}"></span><span>${item.shift}</span></div>
@@ -233,13 +343,38 @@ function generateCard(item, index) {
             <div class="card-detail">Ganti: <strong>${item.namaPegawai}</strong></div>
             <div class="card-detail">Jam: ${shiftInfo}</div>
             ${item.catatan ? `<div class="card-notes">"${item.catatan}"</div>` : ''}
-            <div class="card-actions">
-                <button type="button" class="btn-icon btn-edit" onclick="editItem('${item.id}')">Edit</button>
-                <button type="button" class="btn-icon btn-delete" onclick="deleteItem('${item.id}')">Hapus</button>
+            
+            <div class="card-bottom">
+                <div class="card-status">${statusHTML}</div>
+                <div class="card-actions">
+                    <button type="button" class="btn-icon btn-edit" onclick="editItem('${item.id}')">Edit</button>
+                    <button type="button" class="btn-icon btn-delete" onclick="deleteItem('${item.id}')">Hapus</button>
+                </div>
             </div>
         </div>
     `;
 }
+
+// Fungsi Centang Selesai + Animasi Confetti
+window.markAsCompleted = async (id) => {
+    // Ledakan Confetti
+    confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#26ccff', '#a25afd', '#ff5e7e', '#88ff5a', '#fcff42', '#ffa62d', '#ff36ff']
+    });
+
+    try {
+        await window.fb.updateDoc(window.fb.doc(window.fb.db, "schedules", id), {
+            isCompleted: true,
+            completedAt: window.fb.serverTimestamp()
+        });
+        showToast('Tugas ditandai selesai! Kerja bagus.');
+    } catch (e) {
+        showToast('Gagal update status', 'error');
+    }
+};
 
 document.getElementById('schedule-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -253,15 +388,32 @@ document.getElementById('schedule-form').addEventListener('submit', async (e) =>
         catatan: document.getElementById('schedule-notes').value.trim()
     };
     if (!data.date || !data.unitKerja || !data.namaPegawai) return showToast('Lengkapi data!', 'error');
+    
+    // Reset status jika tanggal / shift diubah manual saat di edit
+    if (id) {
+        data.isCompleted = false; 
+    } else {
+        data.isCompleted = false;
+    }
+
     state.isSubmitting = true;
     const btn = document.getElementById('btn-submit');
     btn.disabled = true;
     try {
-        if (id) await window.fb.updateDoc(window.fb.doc(window.fb.db, "schedules", id), data);
-        else await window.fb.addDoc(window.fb.collection(window.fb.db, "schedules"), data);
+        if (id) {
+            await window.fb.updateDoc(window.fb.doc(window.fb.db, "schedules", id), data);
+            showToast('Jadwal berhasil diperbarui!'); // Pop-up Notifikasi Berhasil Edit
+        } else {
+            await window.fb.addDoc(window.fb.collection(window.fb.db, "schedules"), data);
+            showToast('Jadwal baru berhasil ditambahkan!'); // Pop-up Notifikasi Berhasil Tambah
+        }
         closeModal();
-    } catch (error) { showToast('Gagal menyimpan!', 'error'); }
-    finally { state.isSubmitting = false; btn.disabled = false; }
+    } catch (error) { 
+        showToast('Gagal menyimpan!', 'error'); 
+    } finally { 
+        state.isSubmitting = false; 
+        btn.disabled = false; 
+    }
 });
 
 window.editItem = (id) => {
