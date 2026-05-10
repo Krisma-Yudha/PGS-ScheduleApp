@@ -480,3 +480,29 @@ window.showToast = (msg, type = 'success') => {
     setTimeout(() => toast.classList.add('show'), 10);
     setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 500); }, 3500);
 };
+
+const quotes = [
+    "Keberhasilan adalah milik mereka yang berusaha.",
+    "Jadwal tertata, hidup lebih bermakna.",
+    "Semangat bertugas, Garda terdepan!",
+    "Disiplin adalah kunci kesuksesan.",
+    "Fokus pada tujuan, abaikan rintangan."
+];
+
+// Pilih teks acak
+const quoteElement = document.getElementById('motivational-text');
+if (quoteElement) {
+    const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+    quoteElement.innerText = randomQuote;
+}
+
+// Menghilangkan loader saat halaman selesai load
+window.addEventListener('load', () => {
+    const loader = document.getElementById('global-loader');
+    setTimeout(() => {
+        loader.style.opacity = '0';
+        setTimeout(() => {
+            loader.style.display = 'none';
+        }, 800); 
+    }, 2000); // Tampilkan selama 2 detik agar user sempat baca kutipannya
+});
