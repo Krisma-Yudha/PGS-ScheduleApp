@@ -6,32 +6,23 @@
     <title>EGarda - By Krisma</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
-    
     <link rel="stylesheet" href="style.css">
     
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#000000">
-<link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="apple-touch-icon" href="icon-192.png">
 </head>
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js');
-  }
-</script>
 <body>
-<div id="global-loader" class="global-loader">
-    <div class="loader-content">
-        <img src="icon-192.png" alt="Logo" class="loader-logo">
-        
-        <p id="motivational-text" class="motivational-text">Membuka Aplikasi...</p>
-        
-        <div class="google-progress-container">
-            <div class="google-progress-bar"></div>
+    <div id="global-loader" class="global-loader">
+        <div class="loader-content">
+            <div class="brand-text-animated">EGARDA</div>
+            <p id="motivational-text" class="motivational-text">Membuka Aplikasi...</p>
+            <div class="google-progress-container">
+                <div class="google-progress-bar"></div>
+            </div>
         </div>
     </div>
-</div>
-
 
     <div id="login-screen" class="login-overlay" style="display: none;">
         <div class="wave-container">
@@ -49,6 +40,8 @@
                     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="22" alt="Google">
                     <span>Otorisasi Akun Google</span>
                 </button>
+                
+                <p onclick="loginGuest()" style="text-align: center; color: var(--accent); font-size: 0.85rem; margin-top: 20px; cursor: pointer; font-weight: 600; text-decoration: underline;">Masuk sebagai Tamu</p>
             </div>
 
             <div id="pin-section" style="display: none;">
@@ -85,7 +78,7 @@
     </div>
 
     <div class="app-container" id="main-app" style="display: none;">
-                <header class="app-header">
+        <header class="app-header">
             <div>
                 <h1 class="brand-title" id="egarda-brand">EGarda</h1>
                 <p id="header-date" class="date-display">Memuat tanggal...</p>
@@ -95,7 +88,7 @@
             </button>
         </header>
         <div style="text-align: center; margin: 10px 0 20px;">
-            <p style="font-weight: 600; color: var(--primary); font-size: 0.95rem;">
+            <p id="welcome-text" style="font-weight: 600; color: var(--primary); font-size: 0.95rem;">
                 Selamat datang Developer! Krisma.
             </p>
         </div>
@@ -196,7 +189,6 @@
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { getAuth, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-        // Konfigurasi Firebase Proyek Anda
         const firebaseConfig = {
             apiKey: "AIzaSyAA_tK4pYMtdKlMAGF7u-zwzsc5sWV5PdQ",
             authDomain: "egarda-49d50.firebaseapp.com",
@@ -211,11 +203,15 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        // Ekspos fungsi ke scope window untuk diakses app.js
         window.fb = { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, serverTimestamp, db };
         window.fbAuth = { auth, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup };
     </script>
     
     <script src="app.js"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+      }
+    </script>
 </body>
 </html>

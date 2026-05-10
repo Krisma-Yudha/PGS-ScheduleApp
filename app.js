@@ -1,10 +1,10 @@
 /**
  * EGARDA - Core Logic
- * Google Auth + Local PIN + Live Progress Tracking
+ * Google Auth + Local PIN + Live Progress Tracking + Guest Mode Persistent
  */
 
-// GANTI DENGAN EMAIL KAMU SENDIRI
 const ALLOWED_ADMINS = ["krismayudha836@gmail.com"];
+const GUEST_PIN = "123456"; // PIN khusus untuk tamu
 
 const state = {
     schedules: [],
@@ -12,22 +12,28 @@ const state = {
     isSubmitting: false,
     currentPinInput: "",
     pinMode: "verify",
-    progressTimer: null // Timer untuk progress bar berjalan real-time
+    progressTimer: null,
+    isGuest: false
 };
 
 const TIMEOUT_DURATION = 60 * 60 * 1000; 
 
 const quotes = [
-    '"Disiplin adalah jembatan antara tujuan dan pencapaian."',
-    '"Keamanan adalah tanggung jawab moral, bukan sekadar tugas."',
-    '"Kewaspadaan hari ini adalah keselamatan esok hari."',
-    '"Tugasmu adalah tameng bagi mereka yang tidak menyadarinya."',
-    '"Profesionalisme diukur saat tidak ada yang melihat."'
+    "Keberhasilan adalah milik mereka yang berusaha.",
+    "Jadwal tertata, hidup lebih bermakna.",
+    "Semangat bertugas, Garda terdepan!",
+    "Disiplin adalah kunci kesuksesan.",
+    "Fokus pada tujuan, abaikan rintangan."
 ];
 
 document.addEventListener('DOMContentLoaded', () => {
     updateHeaderDate();
     document.getElementById('quote-display').textContent = quotes[Math.floor(Math.random() * quotes.length)];
+    
+    const quoteElement = document.getElementById('motivational-text');
+    if (quoteElement) {
+        quoteElement.innerText = quotes[Math.floor(Math.random() * quotes.length)];
+    }
     
     document.addEventListener('click', (e) => {
         if (!e.target.closest('#dropdown-container')) {
@@ -46,9 +52,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 100);
 });
 
+window.addEventListener('load', () => {
+    const loader = document.getElementById('global-loader');
+    if(loader) {
+        setTimeout(() => {
+            loader.style.opacity = '0';
+            setTimeout(() => {
+                loader.style.display = 'none';
+                loader.remove();
+            }, 800); 
+        }, 2000); 
+    }
+});
+
 document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
-        if (window.fbAuth && window.fbAuth.auth.currentUser) {
+        if ((window.fbAuth && window.fbAuth.auth.currentUser) || state.isGuest) {
             const lastActive = localStorage.getItem('eg_last_active');
             if (lastActive && (Date.now() - parseInt(lastActive)) > TIMEOUT_DURATION) {
                 lockAppAuto(); 
@@ -61,16 +80,19 @@ document.addEventListener("visibilitychange", () => {
 
 function initAuth() {
     window.fbAuth.onAuthStateChanged(window.fbAuth.auth, async (user) => {
-        const loader = document.getElementById('global-loader');
-        
+        const isGuestMode = localStorage.getItem('eg_guest_mode') === 'true';
+
         if (user) {
             if (!ALLOWED_ADMINS.includes(user.email)) {
                 showToast('Akses Ditolak: Email tidak terdaftar!', 'error');
                 await window.fbAuth.signOut(window.fbAuth.auth);
                 showGoogleScreen();
-                if (loader) loader.style.opacity = '0';
                 return;
             }
+
+            state.isGuest = false;
+            localStorage.removeItem('eg_guest_mode');
+            document.body.classList.remove('guest-mode');
 
             const storedPIN = localStorage.getItem('eg_user_pin');
             const lastActive = localStorage.getItem('eg_last_active');
@@ -83,23 +105,48 @@ function initAuth() {
             } else {
                 enterMainApp();
             }
+        } else if (isGuestMode) {
+            // Jika sebelumnya sudah masuk sebagai tamu
+            state.isGuest = true;
+            document.body.classList.add('guest-mode');
+            const lastActive = localStorage.getItem('eg_last_active');
+            const now = Date.now();
+            
+            if (!lastActive || (now - parseInt(lastActive)) > TIMEOUT_DURATION) {
+                showPinScreen('verify_guest');
+            } else {
+                enterMainApp();
+            }
         } else {
             showGoogleScreen();
-        }
-
-        if (loader) {
-            loader.style.opacity = '0';
-            setTimeout(() => loader.remove(), 500);
         }
     });
 }
 
 function showGoogleScreen() {
+    state.isGuest = false;
+    localStorage.removeItem('eg_guest_mode');
+    document.body.classList.remove('guest-mode');
     document.getElementById('main-app').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('google-section').style.display = 'block';
     document.getElementById('pin-section').style.display = 'none';
 }
+
+window.loginGoogle = async () => {
+    try {
+        const provider = new window.fbAuth.GoogleAuthProvider();
+        await window.fbAuth.signInWithPopup(window.fbAuth.auth, provider);
+    } catch (error) {
+        if (error.code !== 'auth/popup-closed-by-user') showToast('Gagal terhubung dengan Google', 'error');
+    }
+};
+
+window.loginGuest = () => {
+    state.isGuest = true;
+    document.body.classList.add('guest-mode');
+    showPinScreen('verify_guest');
+};
 
 function showPinScreen(mode) {
     state.pinMode = mode;
@@ -112,6 +159,9 @@ function showPinScreen(mode) {
     if (mode === 'setup') {
         document.getElementById('pin-title').textContent = "Buat PIN Baru";
         document.getElementById('pin-subtitle').textContent = "Keamanan akses personel";
+    } else if (mode === 'verify_guest') {
+        document.getElementById('pin-title').textContent = "PIN Tamu";
+        document.getElementById('pin-subtitle').textContent = "Masukkan PIN khusus tamu";
     } else {
         document.getElementById('pin-title').textContent = "Masukkan PIN";
         document.getElementById('pin-subtitle').textContent = "Sesi terkunci demi keamanan";
@@ -119,22 +169,20 @@ function showPinScreen(mode) {
     clearPinUI();
 }
 
-window.loginGoogle = async () => {
-    try {
-        const provider = new window.fbAuth.GoogleAuthProvider();
-        await window.fbAuth.signInWithPopup(window.fbAuth.auth, provider);
-    } catch (error) {
-        if (error.code !== 'auth/popup-closed-by-user') showToast('Gagal terhubung dengan Google', 'error');
-    }
-};
-
 function enterMainApp() {
     localStorage.setItem('eg_last_active', Date.now()); 
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('main-app').style.display = 'flex';
+    
+    const welcomeText = document.getElementById('welcome-text');
+    if (state.isGuest) {
+        welcomeText.textContent = "Selamat datang, Tamu (Mode Lihat).";
+    } else {
+        welcomeText.textContent = "Selamat datang Developer! Krisma.";
+    }
+
     fetchSchedules();
     
-    // Timer pembaruan progress bar 1 menit sekali tanpa load animasi
     if(!state.progressTimer) {
         state.progressTimer = setInterval(() => {
             if(document.getElementById('main-app').style.display === 'flex') {
@@ -148,17 +196,31 @@ window.lockAppManual = () => {
     localStorage.setItem('eg_last_active', '0'); 
     if (state.unsubscribeDB) { state.unsubscribeDB(); state.unsubscribeDB = null; }
     if (state.progressTimer) { clearInterval(state.progressTimer); state.progressTimer = null; }
-    showPinScreen('verify');
+    if (state.isGuest) {
+        showPinScreen('verify_guest');
+    } else {
+        showPinScreen('verify');
+    }
     showToast('Aplikasi Terkunci');
 };
 
 function lockAppAuto() {
     if (state.unsubscribeDB) { state.unsubscribeDB(); state.unsubscribeDB = null; }
     if (state.progressTimer) { clearInterval(state.progressTimer); state.progressTimer = null; }
-    showPinScreen('verify');
+    if (state.isGuest) {
+        showPinScreen('verify_guest');
+    } else {
+        showPinScreen('verify');
+    }
 }
 
 window.logoutFromPin = async () => {
+    if (state.pinMode === 'verify_guest') {
+        localStorage.removeItem('eg_guest_mode');
+        localStorage.removeItem('eg_last_active');
+        showGoogleScreen();
+        return;
+    }
     if (confirm("Ingin keluar dan hapus PIN dari perangkat ini?")) {
         localStorage.removeItem('eg_user_pin');
         localStorage.removeItem('eg_last_active');
@@ -194,20 +256,33 @@ function clearPinUI() {
     updatePinUI();
 }
 
+function triggerPinError(msg) {
+    const authCard = document.getElementById('auth-card');
+    authCard.classList.add('shake-error');
+    setTimeout(() => authCard.classList.remove('shake-error'), 400);
+    showToast(msg, 'error');
+    clearPinUI();
+}
+
 function evaluatePin() {
     if (state.pinMode === 'setup') {
         localStorage.setItem('eg_user_pin', state.currentPinInput);
         showToast('PIN Berhasil Dibuat!');
         enterMainApp();
+    } else if (state.pinMode === 'verify_guest') {
+        if (state.currentPinInput === GUEST_PIN) {
+            // MENYIMPAN SESI TAMU AGAR TIDAK KELUAR SAAT DI-REFRESH
+            localStorage.setItem('eg_guest_mode', 'true'); 
+            enterMainApp();
+        } else {
+            triggerPinError('PIN Tamu Salah!');
+        }
     } else {
         const storedPIN = localStorage.getItem('eg_user_pin');
-        if (state.currentPinInput === storedPIN) enterMainApp();
-        else {
-            const authCard = document.getElementById('auth-card');
-            authCard.classList.add('shake-error');
-            setTimeout(() => authCard.classList.remove('shake-error'), 400);
-            showToast('PIN Salah!', 'error');
-            clearPinUI();
+        if (state.currentPinInput === storedPIN) {
+            enterMainApp();
+        } else {
+            triggerPinError('PIN Salah!');
         }
     }
 }
@@ -227,7 +302,6 @@ function renderUI(noAnimate = false) {
     upcomingContainer.innerHTML = ''; allContainer.innerHTML = '';
     document.getElementById('total-count').textContent = state.schedules.length;
     
-    // Normalisasi hari ini untuk membandingkan tanggal murni
     const today = new Date();
     today.setHours(0, 0, 0, 0); 
 
@@ -236,43 +310,28 @@ function renderUI(noAnimate = false) {
     const tomorrowStr = tomorrowDate.toISOString().split('T')[0];
     let upcomingCount = 0;
     
-    // --- LOGIKA SORTIR BARU ---
     const sortedSchedules = [...state.schedules].sort((a, b) => {
         const dateA = new Date(a.date);
         const dateB = new Date(b.date);
         
-        // 1. Yang sudah selesai ditaruh di urutan paling bawah
-        if (a.isCompleted !== b.isCompleted) {
-            return a.isCompleted ? 1 : -1;
-        }
+        if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1;
         
-        // 2. Prioritaskan jadwal hari ini dan masa depan
         const isPastA = dateA < today;
         const isPastB = dateB < today;
         
-        if (isPastA !== isPastB) {
-            return isPastA ? 1 : -1; // Yang sudah lewat ditaruh ke bawah
-        }
+        if (isPastA !== isPastB) return isPastA ? 1 : -1; 
         
-        // 3. Jika belum berlalu (masa depan), urutkan dari yang terdekat
-        if (!isPastA && !isPastB) {
-            return dateA - dateB; 
-        } 
-        // 4. Jika sudah berlalu tapi belum ditandai selesai, urutkan dari yang paling dekat dengan hari ini
-        else {
-            return dateB - dateA;
-        }
+        if (!isPastA && !isPastB) return dateA - dateB; 
+        else return dateB - dateA;
     });
 
     sortedSchedules.forEach((item, index) => {
         const cardHTML = generateCard(item, index, noAnimate);
         
-        // Append untuk "Semua Jadwal"
         const elAll = document.createElement('div');
         elAll.innerHTML = cardHTML;
         allContainer.appendChild(elAll.firstElementChild);
         
-        // Append untuk "Sorotan" (Hari ini & Besok) - Cek format original Firestore Date
         if (item.date === todayStr || item.date === tomorrowStr) {
             const elUp = document.createElement('div');
             elUp.innerHTML = cardHTML;
@@ -289,10 +348,8 @@ function generateCard(item, index, noAnimate) {
     const formattedDate = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(d);
     const shiftInfo = item.shift === 'Pagi' ? 'Pagi (07:00 - 19:00)' : 'Malam (19:00 - 07:00)';
     
-    // Setting Animasi Entry Card
     const animStyle = noAnimate ? 'animation: none;' : `animation-delay: ${index * 0.05}s;`;
 
-    // --- KALKULASI PROGRESS WAKTU ---
     const now = new Date();
     const dateParts = item.date.split('-'); 
     const year = parseInt(dateParts[0]);
@@ -355,9 +412,7 @@ function generateCard(item, index, noAnimate) {
     `;
 }
 
-// Fungsi Centang Selesai + Animasi Confetti
 window.markAsCompleted = async (id) => {
-    // Ledakan Confetti
     confetti({
         particleCount: 150,
         spread: 70,
@@ -389,7 +444,6 @@ document.getElementById('schedule-form').addEventListener('submit', async (e) =>
     };
     if (!data.date || !data.unitKerja || !data.namaPegawai) return showToast('Lengkapi data!', 'error');
     
-    // Reset status jika tanggal / shift diubah manual saat di edit
     if (id) {
         data.isCompleted = false; 
     } else {
@@ -402,10 +456,10 @@ document.getElementById('schedule-form').addEventListener('submit', async (e) =>
     try {
         if (id) {
             await window.fb.updateDoc(window.fb.doc(window.fb.db, "schedules", id), data);
-            showToast('Jadwal berhasil diperbarui!'); // Pop-up Notifikasi Berhasil Edit
+            showToast('Jadwal berhasil diperbarui!');
         } else {
             await window.fb.addDoc(window.fb.collection(window.fb.db, "schedules"), data);
-            showToast('Jadwal baru berhasil ditambahkan!'); // Pop-up Notifikasi Berhasil Tambah
+            showToast('Jadwal baru berhasil ditambahkan!');
         }
         closeModal();
     } catch (error) { 
@@ -480,29 +534,3 @@ window.showToast = (msg, type = 'success') => {
     setTimeout(() => toast.classList.add('show'), 10);
     setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 500); }, 3500);
 };
-
-const quotes = [
-    "Keberhasilan adalah milik mereka yang berusaha.",
-    "Jadwal tertata, hidup lebih bermakna.",
-    "Semangat bertugas, Garda terdepan!",
-    "Disiplin adalah kunci kesuksesan.",
-    "Fokus pada tujuan, abaikan rintangan."
-];
-
-// Pilih teks acak
-const quoteElement = document.getElementById('motivational-text');
-if (quoteElement) {
-    const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
-    quoteElement.innerText = randomQuote;
-}
-
-// Menghilangkan loader saat halaman selesai load
-window.addEventListener('load', () => {
-    const loader = document.getElementById('global-loader');
-    setTimeout(() => {
-        loader.style.opacity = '0';
-        setTimeout(() => {
-            loader.style.display = 'none';
-        }, 800); 
-    }, 2000); // Tampilkan selama 2 detik agar user sempat baca kutipannya
-});
